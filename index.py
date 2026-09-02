@@ -66,7 +66,7 @@ def webhook():
         # --- TEMPLATE DESIGN ---
         # Line 1: [Logo] [Flag] [ShortCode] [Number]
         # Line 2: Full Message
-        header = f"{p_logo} | source {flag} <b>{country_short}</b> <code>{number}</code>"
+        header = f"{p_logo} | {source} {flag} <b>{country_short}</b> <code>{number}</code>"
         
         full_design = (
             f"{header}\n\n"

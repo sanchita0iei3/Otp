@@ -11,85 +11,92 @@ app = Flask(__name__)
 TOKEN = "8888631821:AAFAd8QCPXu3Zyv6GZsRzHw9Q_4oEBwdEig"
 GROUP_ID = "-1004295923465"
 
-# Platform Icons (Header aur Button ke liye)
+# 1. Platform Logo/Emoji Mapping (Saare bade platforms)
 def get_platform_info(source):
     s = source.lower()
-    if "whatsapp" in s: return "🟢", "💬"
-    if "google" in s: return "🔴", "📩"
-    if "facebook" in s or "fb" in s: return "🔵", "👥"
-    if "telegram" in s or "tg" in s: return "💠", "🤖"
-    return "📱", "📲"
+    mapping = {
+        "whatsapp": "🟢", "facebook": "🔵", "fb": "🔵", "instagram": "🟣", 
+        "insta": "🟣", "google": "🔴", "telegram": "💠", "tg": "💠", 
+        "snapchat": "🟡", "apple": "🍎", "microsoft": "💻", "amazon": "🟠",
+        "netflix": "🛑", "twitter": "✖️", "x": "✖️", "linkedin": "🟦",
+        "tiktok": "🖤", "uber": "🚕", "zomato": "🔴", "swiggy": "🟠",
+        "paytm": "🔵", "phonepe": "🟣", "tinder": "🔥", "discord": "👾"
+    }
+    for key, emoji in mapping.items():
+        if key in s:
+            return emoji
+    return "📱"
+
+# 2. All World Country Flag + 2-Letter Capital Short Code
+def get_country_details(number):
+    try:
+        if not number.startswith('+'):
+            number = '+' + number
+        
+        # Phone library se country code (IN, US, GB, etc.) nikalna
+        parsed_num = phonenumbers.parse(number)
+        iso_code = region_code_for_number(parsed_num).upper() # Example: IN
+        
+        # ISO Code se Flag Emoji banana (Example: IN -> 🇮🇳)
+        flag = "".join(chr(127397 + ord(c)) for c in iso_code)
+        
+        return flag, iso_code
+    except:
+        return "🌐", "UN"
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
         payload = request.json
+        if not payload: return "No Data", 400
+            
         data = payload.get('data', {})
-        source = data.get('source', 'MASTER').upper()
-        number = str(data.get('number', ''))
-        full_msg = data.get('message', '')
+        source = data.get('source', 'N/A')
+        number = data.get('number', 'N/A')
+        msg_body = data.get('message', '')
 
-        # OTP Extract karna
-        otp_match = re.search(r'\b\d{3}[-]?\d{3}\b|\b\d{4,8}\b', full_msg)
-        otp = otp_match.group(0) if otp_match else "000-000"
+        # OTP Extract karna (4-8 digits)
+        otp_match = re.search(r'\b\d{4,8}\b', msg_body)
+        otp = otp_match.group(0) if otp_match else "----"
 
-        # Country Info (Flag, ISO, Dial Code)
-        try:
-            num_obj = phonenumbers.parse(number if number.startswith('+') else '+' + number)
-            iso = region_code_for_number(num_obj).upper()
-            flag = "".join(chr(127397 + ord(c)) for c in iso)
-            dial_code = num_obj.country_code
-        except:
-            iso, flag, dial_code = "UN", "🌐", "00"
+        # Platform aur Country details nikalna
+        p_logo = get_platform_emoji(source) # Platform Logo
+        flag, country_short = get_country_details(number) # Flag aur IN/US/GB
 
-        # Number Parts (Last 4 digits aur Prefix)
-        last_4 = number[-4:] if len(number) > 4 else number
-        prefix = number[:9] if len(number) > 9 else number
-
-        # Platform Icons
-        header_icon, btn_icon = get_platform_info(source)
-
-        # --- DESIGN TEMPLATE (AS PER SCREENSHOT) ---
-        # Line 1: [Flag] [ISO] • [Logo][DialCode] • [SOURCE] - [Last4]
-        # Line 2: Fixed Text (Chinese/Status)
-        # Line 3: Language
-        # Line 4: Flame + Prefix
+        # --- TEMPLATE DESIGN ---
+        # Line 1: [Logo] [Flag] [ShortCode] [Number]
+        # Line 2: Full Message
+        header = f"{p_logo} {flag} <b>{country_short}</b> <code>{number}</code>"
         
-        design = (
-            f"{flag} {iso} • {header_icon}{dial_code} • <b>{source}</b> - {last_4}\n"
-            f"正在营业\n"
-            f"English\n"
-            f"🔥 Prefix <code>{prefix}</code>"
+        full_design = (
+            f"{header}\n\n"
+            f"{msg_body}\n\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"👉 Tap to Copy: <code>{otp}</code>"
         )
 
-        # Telegram Buttons
-        # Green Button (Left) | Blue Button (Right)
-        reply_markup = {
-            "inline_keyboard": [
-                [
-                    {
-                        "text": f"{header_icon} 📋 {otp}", 
-                        "callback_data": "copy"
-                    },
-                    {
-                        "text": "🚀 Number Bot ↗️", 
-                        "url": "https://t.me/your_bot_link" # Yahan apne bot ka link dalo
-                    }
-                ]
-            ]
-        }
-
+        # Telegram Button setup
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+        markup = {
+            "inline_keyboard": [[{"text": f"🔑 {otp} 📋", "callback_data": "copy"}]]
+        }
+        
         requests.post(url, json={
             "chat_id": GROUP_ID,
-            "text": design,
+            "text": full_design,
             "parse_mode": "HTML",
-            "reply_markup": reply_markup
+            "reply_markup": json.dumps(markup)
         })
 
         return "Success", 200
+        
     except Exception as e:
         return str(e), 500
 
+# Helper function for platform
+def get_platform_emoji(source):
+    # (Same as mapping above)
+    return get_platform_info(source)
+
 @app.route('/')
-def home(): return "Layout Sync Active!"
+def home(): return "Professional OTP System Active!"

@@ -78,7 +78,7 @@ def webhook():
         # Telegram Button setup
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         markup = {
-            "inline_keyboard": [[{"text": f"🔑 {otp} 📋", "callback_data": "copy"}]]
+            "inline_keyboard": [[{"text": f" <code>{otp}</code> ", "callback_data": "copy"}]]
         }
         
         requests.post(url, json={
